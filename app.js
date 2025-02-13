@@ -9,7 +9,7 @@ app.get('/health', (req, res) => {
 
 // Sample route
 app.get('/', (req, res) => {
-  res.send('Hello, World! This is a demo application running on Elastic Beanstalk!');
+  res.send('Hello, World! This is a demo application by Shahid running on Elastic Beanstalk!');
 });
 
 // Start the server
