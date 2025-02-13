@@ -1,33 +1,60 @@
-name: Deploy to Elastic Beanstalk
+name: Deploy Node.js API to AWS Elastic Beanstalk
 
 on:
   push:
     branches:
-      - main
+      - main  # Trigger deployment when pushing to the main branch
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: AWS
+
     steps:
+      # Step 1: Checkout the repository
       - name: Checkout Code
         uses: actions/checkout@v3
 
+      # Step 2: Set up Node.js environment
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'  # Adjust based on your app's requirements
+
+      # Step 3: Install dependencies
+      - name: Install Dependencies
+        run: npm install
+
+      # Step 4: Zip the application
+      - name: Zip Application
+        run: zip -r shahid-demo-app.zip . -x "*.git*"
+
+      # Step 5: Configure AWS credentials
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Package Application
-        run: |
-          zip -r deploy.zip . -x "*.git*"
-
+      # Step 6: Upload to S3
       - name: Upload to S3
         run: |
-          aws s3 cp deploy.zip s3://shahid-demo-deploy-bucket/deploy.zip
+          aws s3 cp shahid-demo-app.zip s3://${{ secrets.S3_BUCKET }}/shahid-demo-app-${{ github.sha }}.zip
 
+      # Step 7: Print Application Name (Debugging Step)
+      - name: Print Application Details
+        run: |
+          echo "Deploying to application: ${{ secrets.EB_APPLICATION_NAME }}"
+          echo "Deploying to environment: ${{ secrets.EB_ENVIRONMENT_NAME }}"
+
+      # Step 8: Deploy to Elastic Beanstalk
       - name: Deploy to Elastic Beanstalk
         run: |
-          aws elasticbeanstalk create-application-version --application-name shahid-demo --version-label $GITHUB_SHA --source-bundle S3Bucket=shahid-demo-deploy-bucket,S3Key=deploy.zip
-          aws elasticbeanstalk update-environment --application-name shahid-demo --environment-name Shahid-demo-env --version-label $GITHUB_SHA
+          aws elasticbeanstalk create-application-version \
+            --application-name ${{ secrets.EB_APPLICATION_NAME }} \
+            --version-label ${{ github.sha }} \
+            --source-bundle S3Bucket="${{ secrets.S3_BUCKET }}",S3Key="shahid-demo-app-${{ github.sha }}.zip"
+          aws elasticbeanstalk update-environment \
+            --environment-name ${{ secrets.EB_ENVIRONMENT_NAME }} \
+            --version-label ${{ github.sha }}
